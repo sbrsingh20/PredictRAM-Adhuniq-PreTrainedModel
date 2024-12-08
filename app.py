@@ -20,25 +20,24 @@ This app allows users to:
 model_file = st.file_uploader("Upload Pre-Trained Model (.pkl file)", type=["pkl"])
 if model_file:
     try:
-        # Load the model
+        # Load the model file
         model_details = joblib.load(model_file)
-        
-        # Inspect the contents of the file
-        st.subheader("Model File Contents")
-        st.json(model_details if isinstance(model_details, dict) else str(model_details))
-        
-        # Extract model and its details
-        model = model_details.get('model', None)
-        model_params = model_details.get('parameters', {})
-        model_accuracy = model_details.get('accuracy', 'Not available')
+
+        # Handle different model types
+        if isinstance(model_details, dict):
+            model = model_details.get('model')
+            model_params = model_details.get('parameters', {})
+            model_accuracy = model_details.get('accuracy', 'Not available')
+        else:
+            model = model_details
+            model_params = model.get_params() if hasattr(model, 'get_params') else "No parameters found"
+            model_accuracy = "Not available"
 
         if model:
             st.success("Model loaded successfully!")
-            
-            # Display Model Details
             st.subheader("Model Details")
             st.write("**Model Type:**", type(model).__name__)
-            st.write("**Model Parameters:**", model_params if model_params else "No parameters found")
+            st.write("**Model Parameters:**", model_params)
             st.write("**Model Accuracy:**", model_accuracy)
 
             # Step 2: Select Stocks
