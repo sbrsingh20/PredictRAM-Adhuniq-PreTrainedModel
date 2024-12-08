@@ -1,100 +1,78 @@
 import streamlit as st
 import joblib
 import numpy as np
-import pandas as pd
+import pandas as pd  # Ensure pandas is imported
 import yfinance as yf
 import matplotlib.pyplot as plt
 
-# Set page configuration
-st.set_page_config(page_title="Stock Prediction App", layout="wide")
+# Step 1: Streamlit app configuration
+st.title("Stock Return Prediction App")
+st.markdown("""
+This app allows users to:
+- Upload a pre-trained model.
+- Select a stock for prediction.
+- Input macroeconomic parameters to simulate a scenario.
+- View the stock's historical chart and predicted return.
+""")
 
-# Title and description
-st.title("Stock Prediction App")
-st.write("Upload a pre-trained model, select a stock, and input macroeconomic parameters to predict stock returns.")
+# Step 2: Upload pre-trained model
+model_file = st.file_uploader("Upload Pre-Trained Model (.pkl file)", type=["pkl"])
+if model_file:
+    model = joblib.load(model_file)
+    st.success("Model loaded successfully!")
 
-# Step 1: Upload pre-trained model
-uploaded_model = st.file_uploader("Upload Pre-trained Model (.pkl)", type=["pkl"])
+    # Step 3: Select a stock
+    available_stocks = ['ITC.NS', 'TCS.NS', 'WIPRO.NS', '^NSE']
+    selected_stock = st.selectbox("Select a Stock", available_stocks)
 
-model = None  # Initialize the model variable
-if uploaded_model:
-    try:
-        # Load the uploaded model
-        model = joblib.load(uploaded_model)
-        st.success("Model loaded successfully!")
-
-        # Display model parameters and accuracy details if available
-        if hasattr(model, "get_params"):
-            st.subheader("Model Parameters:")
-            st.json(model.get_params())
-
-        if hasattr(model, "score"):
-            st.info("Note: Accuracy details are unavailable in this pre-trained model. Please upload a compatible model.")
-    except Exception as e:
-        st.error(f"Error loading model: {e}")
-        st.stop()
-else:
-    st.warning("Please upload a valid pre-trained model to proceed.")
-    st.stop()
-
-# Step 2: Define available stocks
-available_stocks = ['ITC.NS', 'TCS.NS', 'WIPRO.NS', '^NSE']
-
-# Step 3: Stock selection
-st.subheader("Select Stock")
-selected_stock = st.selectbox("Choose a stock:", available_stocks)
-
-# Step 4: Date range selection
-st.subheader("Select Date Range for Historical Data")
-start_date = st.date_input("Start Date", value=pd.to_datetime('2023-01-01'))
-end_date = st.date_input("End Date", value=pd.to_datetime('2023-12-31'))
-
-# Fetch stock data
-try:
+    # Step 4: Fetch stock data
+    start_date = st.date_input("Start Date", value=pd.to_datetime('2023-01-01'))
+    end_date = st.date_input("End Date", value=pd.to_datetime('2023-12-31'))
     stock_data = yf.download(selected_stock, start=start_date, end=end_date)['Adj Close']
-    st.success(f"Fetched historical data for {selected_stock} from {start_date} to {end_date}.")
-except Exception as e:
-    st.error(f"Error fetching stock data: {e}")
-    st.stop()
 
-# Display historical data
-st.subheader("Historical Stock Data")
-st.line_chart(stock_data)
+    # Step 5: Calculate daily returns
+    returns = stock_data.pct_change().dropna()
 
-# Step 5: Input macroeconomic parameters
-st.subheader("Input Macroeconomic Parameters")
-inflation_rate = st.number_input("Inflation Rate (%)", min_value=0.0, max_value=100.0, step=0.1)
-interest_rate = st.number_input("Interest Rate (%)", min_value=0.0, max_value=100.0, step=0.1)
-geopolitical_risk = st.slider("Geopolitical Risk (0-10)", min_value=0, max_value=10, step=1)
+    # Display stock's historical chart
+    st.subheader("Historical Stock Performance")
+    if not stock_data.empty:
+        fig, ax = plt.subplots()
+        stock_data.plot(ax=ax, title=f"Historical Prices for {selected_stock}")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Price (Adjusted Close)")
+        st.pyplot(fig)
+    else:
+        st.warning("No data available for the selected date range.")
 
-# Step 6: Prepare scenario and predict
-if st.button("Predict Return"):
-    try:
-        # Ensure the model has a predict method
-        if not callable(getattr(model, "predict", None)):
-            st.error("The uploaded model does not support prediction. Please upload a valid model.")
-        else:
-            # Prepare the input scenario
-            new_scenario = np.array([inflation_rate, interest_rate, geopolitical_risk]).reshape(1, -1)
+    # Step 6: Input macroeconomic parameters
+    st.subheader("Input Macroeconomic Scenario")
+    inflation_rate = st.number_input("Inflation Rate (%)", value=5.0, format="%.2f")
+    interest_rate = st.number_input("Interest Rate (%)", value=3.0, format="%.2f")
+    geopolitical_risk = st.slider("Geopolitical Risk (0-10)", 0, 10, 5)
 
-            # Predict the return
-            predicted_return = model.predict(new_scenario)[0]
-            st.subheader(f"Predicted Return for {selected_stock}")
-            st.write(f"**{predicted_return:.2f}%**")
+    # Step 7: Prepare new scenario
+    new_scenario = np.array([inflation_rate, interest_rate, geopolitical_risk]).reshape(1, -1)
 
-            # Step 7: Display predicted return alongside historical data
-            st.subheader("Predicted Return Chart")
-            fig, ax = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1]})
+    # Predict the return
+    if st.button("Predict Return"):
+        predicted_return = model.predict(new_scenario)[0]
+        st.subheader(f"Predicted Return for {selected_stock}")
+        st.write(f"{predicted_return:.2f}%")
 
-            # Plot historical data
-            stock_data.plot(ax=ax[0], color="blue", title=f"Historical Prices for {selected_stock}")
-            ax[0].set_ylabel("Price (Adjusted Close)")
-            ax[0].set_xlabel("")
+        # Step 8: Display predicted return chart alongside historical data
+        st.subheader("Predicted Return Chart")
+        fig, ax = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1]})
 
-            # Plot predicted return
-            ax[1].bar(['Predicted Return'], [predicted_return], color='orange')
-            ax[1].set_ylabel('Return (%)')
-            ax[1].set_title(f'Predicted Return for {selected_stock}')
+        # Plot historical data
+        stock_data.plot(ax=ax[0], color="blue", title=f"Historical Prices for {selected_stock}")
+        ax[0].set_ylabel("Price (Adjusted Close)")
+        ax[0].set_xlabel("")
 
-            st.pyplot(fig)
-    except Exception as e:
-        st.error(f"Prediction failed: {e}")
+        # Plot predicted return
+        ax[1].bar(['Predicted Return'], [predicted_return], color='orange')
+        ax[1].set_ylabel('Return (%)')
+        ax[1].set_title(f'Predicted Return for {selected_stock}')
+
+        st.pyplot(fig)
+else:
+    st.warning("Please upload a valid pre-trained model file to proceed.")
