@@ -1,6 +1,7 @@
 import streamlit as st
 import joblib
 import numpy as np
+import pandas as pd  # Ensure pandas is imported
 import yfinance as yf
 import matplotlib.pyplot as plt
 
