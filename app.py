@@ -1,7 +1,7 @@
 import streamlit as st
 import joblib
 import numpy as np
-import pandas as pd  # Ensure pandas is imported
+import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
 
@@ -13,13 +13,37 @@ This app allows users to:
 - Select a stock for prediction.
 - Input macroeconomic parameters to simulate a scenario.
 - View the stock's historical chart and predicted return.
+- Display model parameters and accuracy details.
 """)
 
 # Step 2: Upload pre-trained model
 model_file = st.file_uploader("Upload Pre-Trained Model (.pkl file)", type=["pkl"])
 if model_file:
+    # Load the model
     model = joblib.load(model_file)
     st.success("Model loaded successfully!")
+
+    # Display model details
+    st.subheader("Model Details")
+    try:
+        # Display model parameters if available
+        if hasattr(model, 'get_params'):
+            st.write("### Model Parameters:")
+            st.json(model.get_params())
+
+        # Fetch model accuracy details if available
+        st.subheader("Model Accuracy")
+        if hasattr(model, 'training_accuracy_'):
+            st.write(f"Training Accuracy: {model.training_accuracy_ * 100:.2f}%")
+        elif hasattr(model, 'validation_accuracy_'):
+            st.write(f"Validation Accuracy: {model.validation_accuracy_ * 100:.2f}%")
+        elif hasattr(model, 'score') and hasattr(model, 'X_train_') and hasattr(model, 'y_train_'):
+            accuracy = model.score(model.X_train_, model.y_train_) * 100
+            st.write(f"Training Accuracy: {accuracy:.2f}%")
+        else:
+            st.warning("Model accuracy details are unavailable. Ensure the model includes accuracy metrics.")
+    except Exception as e:
+        st.warning(f"Unable to extract model details: {e}")
 
     # Step 3: Select a stock
     available_stocks = ['ITC.NS', 'TCS.NS', 'WIPRO.NS', '^NSE']
