@@ -15,6 +15,7 @@ st.write("Upload a pre-trained model, select a stock, and input macroeconomic pa
 # Step 1: Upload pre-trained model
 uploaded_model = st.file_uploader("Upload Pre-trained Model (.pkl)", type=["pkl"])
 
+model = None  # Initialize the model variable
 if uploaded_model:
     try:
         # Load the uploaded model
@@ -28,7 +29,6 @@ if uploaded_model:
 
         if hasattr(model, "score"):
             st.info("Note: Accuracy details are unavailable in this pre-trained model. Please upload a compatible model.")
-
     except Exception as e:
         st.error(f"Error loading model: {e}")
         st.stop()
@@ -69,13 +69,13 @@ geopolitical_risk = st.slider("Geopolitical Risk (0-10)", min_value=0, max_value
 # Step 6: Prepare scenario and predict
 if st.button("Predict Return"):
     try:
-        # Prepare the input scenario
-        new_scenario = np.array([inflation_rate, interest_rate, geopolitical_risk]).reshape(1, -1)
-
-        # Validate the model compatibility
-        if not hasattr(model, "predict"):
+        # Ensure the model has a predict method
+        if not callable(getattr(model, "predict", None)):
             st.error("The uploaded model does not support prediction. Please upload a valid model.")
         else:
+            # Prepare the input scenario
+            new_scenario = np.array([inflation_rate, interest_rate, geopolitical_risk]).reshape(1, -1)
+
             # Predict the return
             predicted_return = model.predict(new_scenario)[0]
             st.subheader(f"Predicted Return for {selected_stock}")
